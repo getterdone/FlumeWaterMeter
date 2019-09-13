@@ -1,2 +1,2 @@
 # FlumeWaterMeter
-Flume Water Meter Smarttthings Smartapp + Flume Device Handler
+Flume Water Meter Smartthings Smartapp + Flume Water Meter Device Handler
