@@ -15,7 +15,7 @@ See this help guide on steps: https://flumetech.readme.io/reference#accessing-th
 
 
 
-Acknowledgements: Been my first Smartthings app and groovy stab, want to thank windsurfer99 for his implementation:
+Acknowledgements: My first Smartthings app and groovy stab, want to thank windsurfer99 for his implementation:
 https://community.smartthings.com/t/release-streamlabs-smart-home-water-meter-interface/166769
 
 also thank joshs85
