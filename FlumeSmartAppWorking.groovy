@@ -1,15 +1,13 @@
-//working Flume smartapp
-
 /**
- *  Flume Water Flow SM
- *  Smart App/ Service Manager for Flume Water Flow Meter
- *  This will create a companion Device Handler for the Flume device
+ *  StreamLabs Water Flow SM
+ *  Smart App/ Service Manager for StreamLabs Water Flow Meter
+ *  This will create a companion Device Handler for the StreamLabs device
  *  Version 1.0
  *
  *  You MUST enter the API Key value via 'App Settings'->'Settings'->'api_key' in IDE by editing this SmartApp code
- *  This key is provided by Flume upon request
+ *  This key is provided by StreamLabs upon request
  *
- *  Copyright 2019 Ulices Soriano
+ *  Copyright 2019 Bruce Andrews, Ulices Soriano
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -22,6 +20,7 @@
  *
  */
 
+import java.util.TimeZone
 import java.text.SimpleDateFormat
 import groovy.json.*
 import groovy.time.*
@@ -33,9 +32,9 @@ definition(
     author: "Ulices Soriano",
     description: "Service Manager for cloud-based API for Flume Water Flow meter",
     category: "My Apps",
-    iconUrl: "https://windsurfer99.github.io/ST_Flume-Water-Flow/tap-water-icon-128.png",
-    iconX2Url: "https://windsurfer99.github.io/ST_Flume-Water-Flow/tap-water-icon-256.png",
-    iconX3Url: "https://windsurfer99.github.io/ST_Flume-Water-Flow/tap-water-icon-256.png",
+    iconUrl: "https://windsurfer99.github.io/ST_StreamLabs-Water-Flow/tap-water-icon-128.png",
+    iconX2Url: "https://windsurfer99.github.io/ST_StreamLabs-Water-Flow/tap-water-icon-256.png",
+    iconX3Url: "https://windsurfer99.github.io/ST_StreamLabs-Water-Flow/tap-water-icon-256.png",
  	singleInstance: true) 
 	
 	
@@ -64,7 +63,7 @@ preferences {
 			)
             		/* input (name: "Flume_awayModes", type: "mode", title: "Enter SmartThings modes when water meter should be Away", 
                     		multiple: true, required: false) */
-            		input (name: "userFlume_locName", type: "text", title: "Enter Flume location name assigned to Flume flow meter", 
+            		input (name: "userFlume_locName", type: "text", title: "Enter Streamlabs location name assigned to Streamlabs flow meter", 
                     		multiple: false, required: true)
                     input (name: "configLoggingLevelIDE",
                         title: "IDE Live Logging Level:\nMessages with this level and higher will be logged to the IDE.",
@@ -93,30 +92,30 @@ private String FlumeAPISecret() {return appSettings.FlumeAPI_Secret}
 
 //required methods
 def installed() {
-	//log.debug "Flume SM installed with settings: ${settings}"
+	//log.debug "StreamLabs SM installed with settings: ${settings}"
     state.enteredLocName =  userFlume_locName//save off the location name entered by user
     runIn(3, "initialize")
 }
 
 def updated() {
     if (state.enteredLocName != userFlume_locName) { //if location name changed, need to make a new device
-    	logger("Flume SM updated() called- new device with settings: ${settings}","trace")
+    	logger("StreamLabs SM updated() called- new device with settings: ${settings}","trace")
         unsubscribe()
         cleanup()
     	runIn(10, "initialize") //deleteChildDevice seems to take a while to delete; wait before re-creating
     } else {
 	   	state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
-		logger("Flume SM updated() called- same name, no new device with settings: ${settings}","info")
+		logger("StreamLabs SM updated() called- same name, no new device with settings: ${settings}","info")
     }
 }
 
 def initialize() {
     state.loggingLevelIDE = (settings.configLoggingLevelIDE) ? settings.configLoggingLevelIDE.toInteger() : 3
-    logger("Flume SM initialize() called with settings: ${settings}","trace")
+    logger("StreamLabs SM initialize() called with settings: ${settings}","trace")
 	// get the value of api key
 	def mySecret = FlumeAPISecret()  //appSettings.api_key
     if (mySecret.length() <20) {
-    	logger("Flume SM initialize- api_secret value not set properly in IDE: ${mySecret}","error")
+    	logger("StreamLabs SM initialize- api_secret value not set properly in IDE: ${mySecret}","error")
     }
 	state.flumeUserId = getflumeUserId()
 	state.flumeDeviceId  = getflumeDeviceId()
@@ -125,7 +124,7 @@ def initialize() {
     state.inAlert = false
     /* state.homeAway = "home" */
     subscribe(location, "mode"/* , modeChangeHandler */)
-    initFlume_locations(flumeUserId) //determine Flume location to use
+    initFlume_locations(flumeUserId) //determine Streamlabs location to use
     log.debug("initialize()FLOW state.Flume_location = ${state.Flume_location}")
     
     if (state.Flume_location) { 
@@ -137,7 +136,7 @@ def initialize() {
         def existingDevice = getChildDevice(state.flumeDeviceId)//idToString)              
         existingDevice?.generateEvent(eventData) //this was off the hold time?? now back on not sure what is happening
         state.inAlert =  false
-       schedule("0 0/3 * * * ?", pollSLAlert) //Poll Flume cloud for leak alert //change 0 0/3 to 2  0/2 for two minutes
+       schedule("0 0/3 * * * ?", pollSLAlert) //Poll Streamlabs cloud for leak alert //change 0 0/3 to 2  0/2 for two minutes
         runIn(8,"initDevice") //update once things are initialized
     }
     
@@ -181,14 +180,14 @@ def login() {
 				//log.debug("getJWT: Successful")
                 //log.debug("get resp.data: ${resp.data}")
                 //log.debug("getsize: ${resp.data.getAt('data').size()}")
-                //log.debug("getAt: ${resp.data.getAt('data').access_token}")
-              // DecodedJWT jwt = JWT.decode(response.getInstance().getAccessToken())
+                //  //log.debug("getAt: ${resp.data.getAt('data').access_token}")
+              //  DecodedJWT jwt = JWT.decode(response.getInstance().getAccessToken())
                 state.myToken = resp.data.getAt('data').access_token
                 //log.debug("getToken: ${state.myToken}")
 				state.jwt = resp.data.jwt
 				def jsonSlurper = new JsonSlurper()
                 //log.debug("getsize myToken: ${state.myToken.size()}")
-                //log.debug("getsize myToken: ${state.myToken.size()}")
+                ////log.debug("getsize myToken: ${state.myToken.size()}")
 				def parsedJwt = /*resp.data.jwt*/state.myToken[0].tokenize(".")[1]
 				parsedJwt = new String(parsedJwt?.decodeBase64(), "UTF-8")
 				parsedJwt = jsonSlurper.parseText(parsedJwt)
@@ -229,22 +228,22 @@ def getflumeDeviceId(){
 }
 
 def uninstalled() {
-    logger("Flume SM uninstalled() called","trace")
+    logger("StreamLabs SM uninstalled() called","trace")
     cleanup()
 }
 
 
 //remove things
 def cleanup() {
-    logger("Flume SM cleanup() called","trace")
+    logger("StreamLabs SM cleanup() called","trace")
     def Flume_Devices = getChildDevices()
     Flume_Devices.each {
-    	logger("Flume SM cleanup- deleting SL deviceNetworkID: ${it.deviceNetworkId}","info")
+    	logger("StreamLabs SM cleanup- deleting SL deviceNetworkID: ${it.deviceNetworkId}","info")
     	try {
             deleteChildDevice(it.deviceNetworkId)
         }
     	catch (e) {
-    		logger("Flume SM cleanup- caught and ignored deleting child device: {it.deviceNetworkId}: $e","info")
+    		logger("StreamLabs SM cleanup- caught and ignored deleting child device: {it.deviceNetworkId}: $e","info")
        	}
     }
     state.Flume_location = null
@@ -255,7 +254,7 @@ def cleanup() {
 //Handler for schedule; determine if there are any alerts
 
 def pollSLAlert() {
-    logger("Flume SM pollSLAlert() called","trace")
+    logger("StreamLabs SM pollSLAlert() called","trace")
      //def idToString = (state.Flume_location?.id).toString()
     def existingDevice = getChildDevice(state.flumeDeviceId)//idToString)
 	if (state.Flume_location){
@@ -263,10 +262,11 @@ def pollSLAlert() {
             uri:  getApiBase(),
 			path: "users/${flumeUserId}/notifications",         
 			headers: getDefaultAuthHeaders(),
+           // query: [read: "false"],
     ]
         try {
             httpGet(params) {resp ->
-    			logger("Flume SM pollSLAlert resp.data: ${resp.data}","debug")
+    			logger("StreamLabs SM pollSLAlert resp.data: ${resp.data}","debug")
                 def resp_data = resp.data
                 
                 log.debug ("resp_data line 262 begin ${resp_data} end")
@@ -285,23 +285,23 @@ def pollSLAlert() {
                    }
                
 				 log.debug ("resp_data line 277 begin '${myLowWaterFlowAlertMessage}' end ")
-                      
-                if (myLowWaterFlowAlert) {
+              if (myLowWaterFlowAlert) {    
+            //  if (true) {
                     //send wet event to child device handler every poll to ensure not lost due to handler pausing
-    				logger("Flume SM pollSLAlert Alert0 received: ${Flume_locationsAlert}; call changeWaterToWet","info")
+    				logger("StreamLabs SM pollSLAlert Alert0 received: ${Flume_locationsAlert}; call changeWaterToWet","info")
                     existingDevice?.changeWaterToWet()
                     state.inAlert =  true
                 } else {
                     if (state.inAlert){
                         //alert removed, send dry event to child device handler only once
-    					logger("Flume SM pollSLAlert Alert0 deactivated ; call changeWaterToDry","info")
+    					logger("StreamLabs SM pollSLAlert Alert0 deactivated ; call changeWaterToDry","info")
                         existingDevice?.changeWaterToDry()
                         state.inAlert =  false
                     }
                 }
             }
         } catch (e) {
-    		logger("Flume SM pollSLAlert error retrieving alerts: $e","error")
+    		logger("StreamLabs SM pollSLAlert error retrieving alerts: $e","error")
         }
     }
 }
@@ -309,7 +309,7 @@ def pollSLAlert() {
 
 //callback in order to initialize device
 def initDevice() {
-    logger("Flume SM initDevice() called","trace")
+    logger("StreamLabs SM initDevice() called","trace")
 	determineFlows()
     /* determinehomeAway() */
     //def idToString = (state.Flume_location?.id).toString()
@@ -327,25 +327,71 @@ println sdf.format(date)//log.debug(now.format("yyyyMMdd-HH:mm:ss.SSS", TimeZone
 
 //determine flow totals from cloud
 def determineFlows() {
+def lastMinute = null
 def today = null
 def lastHour = null
 def last24Hours = null 
 def adjustedDate = null
+def adjustedTime = null
 use (groovy.time.TimeCategory) {
+
+	//go here to find yours http://www.java2s.com/Code/Java/Development-Class/DisplayAvailableTimeZones.htm
+	//enter your timezone in line 340
+def tz = TimeZone.getTimeZone("America/New_York") //(TimeZone.getDefault())
 def date = new Date()
-def sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-adjustedDate = date-4.hours
-today = sdf.format(adjustedDate)
-lastHour = sdf.format(adjustedDate-120.minutes)
-last24Hours = sdf.format(adjustedDate-24.hours)
+def now = date.getTime()
+def myTimeFormat = "yyyy-MM-dd HH:mm:ss"
+//def sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
-}
+/*
+import java.util.TimeZone
+ 
+tz = TimeZone.getTimeZone("Asia/Jerusalem")
+ 
+def ts = new Date()
+println(ts)                                 // 12:43:14 UTC 2018
+println(ts.format("HH:mm"))                 // 12:43
+println(ts.format("HH:mm", timezone=tz))    // 15:43
+*/
 
+
+//adjustedDate = date-5.hours
+//adjustedDate = sdf.setTimeZone(TimeZone.getDefault())
+//adjustedDate = sdf.setTimeZone(TimeZone.getDefault()) //date-5.hours
+//adjustedTime = now-5.hours
+
+lastMinute=(date-1.minutes).format(myTimeFormat, tz)
+today = date.format(myTimeFormat, tz)
+lastHour = (date-60.minutes).format(myTimeFormat, tz)
+last24Hours = (date-24.hours).format(myTimeFormat, tz)
+/*
+today = sdf.format(date)
+lastHour = sdf.format(date-120.minutes)
+last24Hours = sdf.format(date-24.hours)
+*/
+}//end of determineFlow
+
+log.debug("myDefault Timezone '${tz}'")
+log.debug("lastMinute '${lastMinute}'")
 log.debug("todayTime '${today}'")
 log.debug("lastHourTime '${lastHour}'")
 log.debug("last24HoursTime '${last24Hours}'")
 
-
+/*
+def myBook = new MyBook(isbn: '0321774094',
+  title: 'Scala for the Impatient',
+  author: 'Cay S. Horstmann',
+  publisher: 'Addison-Wesley Professional')
+  */
+  /*
+  def todayUsage = new TodayUsage(
+  	request_id: 'today',
+  	bucket: "DAY",
+    since_datetime: today
+  )
+jsonBuilder(queries: todayUsage)   //books: myBookList)
+log.debug("jsonBuilder.toPrettyString() '${jsonBuilder.toPrettyString()}'")
+*/
 
 	 def body = new groovy.json.JsonOutput().toJson([
            
@@ -387,17 +433,17 @@ log.debug("last24HoursTime '${last24Hours}'")
             [
              request_id: "currentMin",
             bucket: "MIN",
-            since_datetime: today,
-            ]
+            since_datetime: lastMinute,
+            ],
             
    		 ],
     ])
-    //debug stuff json
+    //good debug stuff json
    // def bodyString = new groovy.json.JsonOutput().prettyPrint(body)
 	  //log.debug("body output'${body}'")
       //log.debug("bodyString output '${bodyString}'")
       
-    logger("Flume SM determineFlows() called","trace")
+    logger("StreamLabs SM determineFlows() called","trace")
     //def idToString = (state.Flume_location?.id).toString()
     def existingDevice = getChildDevice(state.flumeDeviceId) //idToString) //need to do the ? to see what it does
   	log.debug("determineFlows(): state.flumeDeviceId '${state.flumeDeviceId}'")
@@ -406,17 +452,25 @@ log.debug("last24HoursTime '${last24Hours}'")
             uri:  getApiBase(),
 			path: "users/${flumeUserId}/devices/${state.flumeDeviceId}/query",         
 			headers: getDefaultAuthHeaders(),
-            body: body //bodyString
+            body: body//bodyString
     ]
     //log.debug("try params output'${params}'")
         try {
         		                
                 httpPostJson(params) {resp ->
-                    def resp_data = resp.data
-                
+                    def resp_data = resp.data ///def bodyString = new groovy.json.JsonOutput().prettyPrint(body)
+                     //def responseBodyString = new groovy.json.JsonOutput().prettyPrint(resp_data)
+                     //log.debug("responseBodyString output '${responseBodyString}'")
+                    //def slurper = new JsonSlurper().parseText(resp_data)
+                    /*
+                    def state.todayFlow = null
+                	def state.thisMonthFlow = null
+                	def state.thisYear = null
+					*/
+    
                     if (resp.status == 200){//successful retrieve
                     
-                    log.debug("resp_data success 200 '${resp_data}'")
+                    log.debug("**determineFlows** resp_data success 200 '${resp_data}'")
                     //log.debug("resp_data.data'${resp_data.data}'")
                    // log.debug("resp_data.data.today.value '${resp_data.data.today.value}'")        //.value returns [[0]] .value[0] returns [0]
                      }
@@ -425,23 +479,37 @@ log.debug("last24HoursTime '${last24Hours}'")
                     }
                     
                 //this should have worked? log.debug("resp.status '${resp.status}'")
-    			//logger("Flume SM determineFlows resp.data: ${resp.data}","debug")
+    			//logger("StreamLabs SM determineFlows resp.data: ${resp.data}","debug")
                 
-                         
+                //log.debug("outside of if success condition resp.data '${resp.data}'")
+                //log.debug("device queris result '${resp_data}'")
+           
+            	//log.debug("resp_data?.data.today.value '${resp_data?.data.today.value}'")
+                 //log.debug("resp_data.data.today.value '${resp_data.data.today.value}'")
+              // def myWaterValues = resp_data.data.getAt('thisMonth')//.size()
+             //  log.debug(" getAt('thisMonth') myWaterValues '${myWaterValues}'")
+                    
+                    
+                   state.thisCurrentMinFlow = (resp_data.data.currentMin?.value[0][0]).toInteger() //!= null ?  (resp_data.data.currentMin.value[0][0]).toInteger() : 0  //(resp_data.data.getAt('currentMin').getAt('value')[0][0]).toInteger()  //resp_data.data.thisMonth.value
+                   log.debug("state.thisCurrentMinFlow  '${state.thisCurrentMinFlow}'")
+               
+               
+               
                state.todayFlow = (resp_data.data.today.value[0][0]).toInteger()
-               log.debug(" state.todayFlow '${ state.todayFlow}'")
+               log.debug("state.todayFlow '${ state.todayFlow}'")
                
                state.thisMonthFlow = (resp_data.data.getAt('thisMonth').getAt('value')[0][0]).toInteger()  //resp_data.data.thisMonth.value
                  log.debug("state.thisMonthFlow  '${state.thisMonthFlow }'")
                
-               state.thisYearFlow = (resp_data.data.thisYear.value[0][0]).toInteger()
+               state.thisYearFlow = (resp_data.data.thisYear.value[0][0]).toDouble()
                  log.debug("state.thisYearFlow '${state.thisYearFlow}'")
                 //state.unitsFlow = resp_data?.units
                 
             }
         } catch (e) {
-    		logger("Flume SM determineFlows error retrieving summary data e= ${e}","error")
+    		logger("StreamLabs SM determineFlows error retrieving summary data e= ${e}","error")
             
+            state.thisCurrentMinFlow = 0
             state.todayFlow = 0
             state.thisMonthFlow = 0
             state.thisYearFlow = 0
@@ -452,10 +520,46 @@ log.debug("last24HoursTime '${last24Hours}'")
     }
 }
  
-//Get desired location from Flume cloud based on user's entered location's name
+//determine StreamLabs home/away from StreamLabs cloud
+
+/* def determinehomeAway() {
+    logger("StreamLabs SM determinehomeAway() called","trace")
+    def existingDevice = getChildDevice(state.Flume_location?.locationId)
+	if (existingDevice){
+        def params = [
+                uri:  'https://api.streamlabswater.com/v1/locations/' + state.Flume_location.locationId,
+                headers: ['Authorization': 'Bearer ' + appSettings.api_key],
+                contentType: 'application/json',
+                ]
+		try {
+            httpGet(params) {resp ->
+    			logger("StreamLabs SM determinehomeAway resp.data: ${resp.data}; resp.status: ${resp.status}","debug")
+                if (resp.status == 200){//successful retrieve
+                    def resp_data = resp.data
+                    state.homeAway = resp_data?.homeAway
+                }
+            }
+        } catch (e) {
+    		logger("StreamLabs SM determinehomeAway error: $e","error")
+        }
+    }
+} */
+/*
+    def body = new groovy.json.JsonOutput().toJson([
+            "email"   : settings.email,
+            "password": settings.password
+    ])
+    def params = [
+        uri: getApiBase(),
+        path: "auth",
+        headers: getDefaultHeaders(),
+        body: body
+    ]
+*/
+//Get desired location from Streamlabs cloud based on user's entered location's name
 def initFlume_locations(flumeUserId) {
 	//log.debug("initFlume_locations(flumeUserId) = ${flumeUserId}")
-    logger("Flume SM initFlume_locations() called","trace")
+    logger("StreamLabs SM initFlume_locations() called","trace")
     /*
         def qs = new groovy.json.JsonOutput().toJson(
         	[
@@ -493,66 +597,146 @@ log.debug("params ${params}")
             
             def ttl = resp_data.count
     
-             resp.data.data.each{Flume_loc->
+             resp.data.data.each{SL_loc->
      
-           		def tempLocationName = Flume_loc.location.name
+           		def tempLocationName = SL_loc.location.name
                 log.debug("tempLocationName '${tempLocationName}'")
          		
                 if (tempLocationName.equalsIgnoreCase(userFlume_locName)) { //Let user enter without worrying about case
-                     state.Flume_location = Flume_loc  //resp.data.data[myCounter]//Flume_loc //all data resp
+                     state.Flume_location = SL_loc  //resp.data.data[myCounter]//SL_loc //all data resp
                 }
             }
             
              //log.debug("final loop count value ${myCounter} ")
             if (!state.Flume_location) {
-		    	logger("Flume SM in initFlume_locations- Flume location name: ${userFlume_locName} not found!","warn")
+		    	logger("StreamLabs SM in initFlume_locations- StreamLabs location name: ${userFlume_locName} not found!","warn")
             } else {
-		                
+			/*
+			 def params = [
+            uri:  getApiBase(),
+			path: "users/${flumeUserId}/devices",         
+			headers: getDefaultAuthHeaders(),
+			]
+			try {
+        httpGet(params) {resp ->
+		def resp_dataDevices = resp.data
+		
+		}*/
+			
+			
+            
+            ////log.debug("else condition existing Device")
+            	//save current homeAway status
+                //state.homeAway = state.Flume_location.homeAway 
+                
                 //create device handler for this location (device)
                 //def idToString = (state.Flume_location.id).toString()
                 def existingDevice = getChildDevice(state.flumeDeviceId)//                idToString)   //state.Flume_location.locationId)
-				//log.debug("line 416 existingDevice getChildDevice state.Flume_location.locationId=== ${state.Flume_location.get('id')}") //state.Flume_location.locationId}")
+              //   //log.debug("line 416 existingDevice getChildDevice state.Flume_location.locationId=== ${state.Flume_location.get('id')}") //state.Flume_location.locationId}")
                 if(!existingDevice) {
+                // //log.debug("line 418 !existingDevice === ${existingDevice}")
                    def childDevice = addChildDevice("getterdone", "Flume Water Flow DH", state.flumeDeviceId /*idToString*/, null, [name: "Flume Water Flow DH", 
                         label: "Flume Water Flow DH", completedSetup: true])
-		    		//logger("Flume SM initFlume_locations- device created with Id: ${state.Flume_location.get('id')/*locationId*/} for Flume_location: ${state.Flume_location.get('name')/*name*/}","info")
-					////log.debug("Flume SM initFlume_locations- device created with Id: ${state.Flume_location.get('id')/*locationId*/} for Flume_location: ${state.Flume_location.get('name')/*name*/} ") 
+		    		//logger("StreamLabs SM initFlume_locations- device created with Id: ${state.Flume_location.get('id')/*locationId*/} for Flume_location: ${state.Flume_location.get('name')/*name*/}","info")
+					////log.debug("StreamLabs SM initFlume_locations- device created with Id: ${state.Flume_location.get('id')/*locationId*/} for Flume_location: ${state.Flume_location.get('name')/*name*/} ") 
                 } else {
-		    		logger("Flume SM initFlume_locations- device not created; already exists: ${existingDevice.getDeviceNetworkId()}","warn")
+		    		logger("StreamLabs SM initFlume_locations- device not created; already exists: ${existingDevice.getDeviceNetworkId()}","warn")
                 }
             }
        } 
     } catch (e) {
-		logger("Flume SM error in initFlume_locations retrieving locations: $e","error")
+		logger("StreamLabs SM error in initFlume_locations retrieving locations: $e","error")
     }
 }
+
+//Method to set Streamlabs homeAway status; called with 'home' or 'away'
+/*
+def updateAway(newHomeAway) {
+	logger("StreamLabs SM updateAway() called with newHomeAway: ${newHomeAway}","trace")
+    def cmdBody = [
+			"homeAway": newHomeAway
+	]
+    def params = [
+            uri:  'https://api.streamlabswater.com/v1/locations/' + state.Flume_location.locationId,
+            headers: ['Authorization': 'Bearer ' + appSettings.api_key],
+            contentType: 'application/json',
+			body : new groovy.json.JsonBuilder(cmdBody).toString()    
+            ]
+
+	logger("StreamLabs SM updateAway params: ${params}","info")
+
+	try {
+        httpPutJson(params){resp ->
+			logger("StreamLabs SM updateAway resp data: ${resp.data}","info")
+			logger("StreamLabs SM updateAway resp status: ${resp.status}","info")
+            if (resp.status == 200){//successful change
+                def eventData = [name: "homeAway", value: newHomeAway]
+                def existingDevice = getChildDevice(state.Flume_location?.locationId)
+                existingDevice?.generateEvent(eventData) //tell child device new home/away status
+                state.homeAway = newHomeAway
+           }
+        }
+    } catch (e) {
+		logger("StreamLabs SM error in updateAway: $e","error")
+    }
+}
+*/
+
+//handler for when SmartThings mode changes
+//if new mode is one of the ones specified for a StreamLabs away mode, change Streamlabs to away
+//Do nothing if the user hasn't selected any modes defined as being Streamlabs away.
+
+/* def modeChangeHandler(evt) {
+	logger("StreamLabs SM modeChangeHandler() called by SmartThings mode changing to: ${evt.value}","info")
+    ////log.debug "StreamLabs SM SmartThings mode changed to ${evt.value}"
+    ////log.debug "Flume_awayModes: ${Flume_awayModes}"
+    ////log.debug "location.currentMode: ${location.currentMode}"
+	def foundmode = false
+	logger("StreamLabs SM modeChangeHandler- user specified Flume_awayModes: ${Flume_awayModes}; # of modes: ${Flume_awayModes?.size}","debug")
+    if (Flume_awayModes?.size() > 0) {//only do something if user specified some modes
+        Flume_awayModes?.each{ awayModes->
+            if (location.currentMode == awayModes) {
+                foundmode = true //new mode is one to set Streamlabs to away
+            }
+        }
+        if (foundmode) {
+            //change to away
+			logger("StreamLabs SM modeChangeHandler- changing StreamLabs to away","info")
+            updateAway("away")
+        } else {
+            //change to home; new mode isn't one specified for Streamlabs away
+			logger("StreamLabs SM modeChangeHandler- changing StreamLabs to home","info")
+            updateAway("home")
+        }
+    }
+} */
 
 // Child called methods
 
 // return current flow totals, etc.
 Map retrievecloudData() {
-	logger("Flume SM retrievecloudData() called","trace")
+	logger("StreamLabs SM retrievecloudData() called","trace")
     //get latest data from cloud
-  
+    /* determinehomeAway() */
    determineFlows()
    pollSLAlert()
 	return ["todayFlow":state.todayFlow, "thisMonthFlow":state.thisMonthFlow, 
-      "thisYearFlow":state.thisYearFlow,  "inAlert":state.inAlert]
+      "thisYearFlow":state.thisYearFlow,  /*"homeAway":state.homeAway, */ "inAlert":state.inAlert, "thisCurrentMinFlow":state.thisCurrentMinFlow]
 }
 
 //delete child device; called by child device to remove itself. Seems unnecessary but documentation says to do this
 def	deleteSmartLabsDevice(deviceid) {
-	logger("Flume SM deleteSmartLabsDevice() called with deviceid: ${deviceid}","trace")
+	logger("StreamLabs SM deleteSmartLabsDevice() called with deviceid: ${deviceid}","trace")
     def Flume_Devices = getChildDevices()
     Flume_Devices?.each {
     	if (it.deviceNetworkId == deviceid) {
-			logger("Flume SM deleteSmartLabsDevice- deleting SL deviceNetworkID: ${it.deviceNetworkId}","info")
+			logger("StreamLabs SM deleteSmartLabsDevice- deleting SL deviceNetworkID: ${it.deviceNetworkId}","info")
             try {
                 deleteChildDevice(it.deviceNetworkId)
                 sendEvent(name: "DeviceDelete", value: "${it.deviceNetworkId} deleted")
             }
             catch (e) {
-				logger("Flume SM deleteSmartLabsDevice- caught and ignored deleting child device: {it.deviceNetworkId} during cleanup: $e","info")
+				logger("StreamLabs SM deleteSmartLabsDevice- caught and ignored deleting child device: {it.deviceNetworkId} during cleanup: $e","info")
             }
         }
     }
