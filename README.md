@@ -9,7 +9,7 @@ See this help guide on steps: https://flumetech.readme.io/reference#accessing-th
 
 4. Install/Add the Flume Smart App using your Smartthings Mobile OneApp App: One App smartthings: From dashboard Click the + , In the 'Add' screen select 'SmartApp' then find the smartapp 'OneApp Flume Water Flow SM' 
 
-5. Once you enter your login credentials in the Flume Options smartthings app click Done this new OneApp implementation will find your Flume devices and assigned the names automatically based on the names you provided on the Flume ios/android app. So if your Flume device name is Flume-Location Home1, and Flume-Location Home2, in the OneApp Smartthings app, there should be two new sensor devices "Flume-Location Home1-Flume Meter", and "Flume-Location Home2-Flume Meter". You only need one SM instance to manage multiple Flume devices. This will handle Low Leak Alerts. 
+5. Once you enter your login credentials in the Flume Options smartthings app click Done this new OneApp implementation will find your Flume devices and assigned the names automatically based on the names you provided on the Flume ios/android app. So if your Flume device name is Flume-Location Home1, and Flume-Location Home2, in the OneApp Smartthings app dashboard, there should be two new sensor devices "Flume-Location Home1-Flume Meter", and "Flume-Location Home2-Flume Meter". You only need one SM instance to manage multiple Flume devices. This will handle Low Leak Alerts. 
 
 7. Enjoy
 
