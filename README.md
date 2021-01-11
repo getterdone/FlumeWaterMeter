@@ -5,6 +5,7 @@ OneApp Flume Water Meter Smartthings Smartapp + Flume Water Meter Device Handler
 See this help guide on steps: https://flumetech.readme.io/reference#accessing-the-api
 
 2. Once app is installed in Smartthings web IDE you will need to provide Client Key and Secret Key in the Flume Smartapp>Edit SmartApp>settings: Add your Client and Secret info here.
+
 3. Don't forget to do enable Oauth Flume Smartapp>Edit SmartApp>OAuth
 
 4. Install/Add the Flume Smart App using your Smartthings Mobile OneApp App: One App smartthings: From dashboard Click the + , In the 'Add' screen select 'SmartApp' then find the smartapp 'OneApp Flume Water Flow SM' 
@@ -12,6 +13,12 @@ See this help guide on steps: https://flumetech.readme.io/reference#accessing-th
 5. Once you enter your login credentials in the Flume Options smartthings app click Done this new OneApp implementation will find your Flume devices and assigned the names automatically based on the names you provided on the Flume ios/android app. So if your Flume device name is Flume-Location Home1, and Flume-Location Home2, in the OneApp Smartthings app dashboard, there should be two new sensor devices "Flume-Location Home1-Flume Meter", and "Flume-Location Home2-Flume Meter". You only need one SM instance to manage multiple Flume devices. This will handle Low Leak Alerts. 
 
 7. Enjoy
+
+Summary of Release:
+OneApp Smartthings framework ready
+One Service Manager for multiple Flume devices
+TimeZone automatically pulled from Flume devices
+Handles slow leak alerts
 
 
 
