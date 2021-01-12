@@ -25,7 +25,7 @@ metadata {
         capability "mediapepper07880.watermeterflow"
         capability "mediapepper07880.watermetermonitorstatus"
 
-     
+     		//adding to testGitHub
      /* command "changeToAway"
         command "changeToHome"
         */
