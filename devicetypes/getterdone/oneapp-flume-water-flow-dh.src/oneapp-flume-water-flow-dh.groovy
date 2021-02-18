@@ -1,9 +1,9 @@
-/** 
+/**
  *  OneApp Flume Water Flow DH
  *  Device Handler for Flume Water Flow Meter: Cloud Connected Device; created by Flume Water Flow Service Manager/ SmartApp
  *  Version 2.0 OneApp
  *
- *  Copyright 2021 windsurfer99, getterdone
+ *  Copyright 2019 windsurfer99, getterdone
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -42,6 +42,9 @@ metadata {
         attribute "yearFlow", "string"
         attribute "suspend", "enum", ["pause", "monitor"] //tracks if user has requested to suspend leak alerts
        /* attribute "homeAway", "enum", ["home", "away"] */
+       
+       attribute "last24Hours", "string"
+       attribute "lastHour", "string"
 	}
 
 
@@ -117,7 +120,7 @@ metadata {
 def installed() {
 	log.debug "Flume DH installed() called"
 
-	runIn(7,"initialize")
+	runIn(5,"initialize")
 }
 
 def initialize() {
@@ -131,7 +134,7 @@ def initialize() {
     //new
   //  runEvery5Minutes(poll())
    //original line 
-   schedule("0 0/2 * * * ?", poll) //refresh every 10 minutes change to 5
+   schedule("0 0/9 * * * ?", poll) //refresh every 10 minutes change to 5
    
    //new
    //schedule("0 0/5 * * * ?", parent.retrievecloudData(device.deviceNetworkId))
@@ -250,28 +253,28 @@ def poll() {
         */
         
         switch(argument) {
-        case "thisCurrentMinFlow":
+         case "thisCurrentMinFlow":
             //addEvent(name: "thisCurrentMinFlow", value: "${thisCurrentMinFlow}" )
             log.debug("setListElement argument thisCurrentMinFlow case: '${argument}'")
-               sendEvent(name: "listElement", value: "Currently: '${myTempCurrentMin}' GPM")
+               sendEvent(name: "listElement", value: "Currently: ${myTempCurrentMin} GPM")
             // sendEvent(name: "listElement", value: "Currently: 27 Gallon(s)")
             break
         case "todayFlow":
            // addEvent(name: "todayFlow", value: "${state.todayFlow.value}" )
            log.debug("setListElement argument todayFlow case: '${argument}'")
-           sendEvent(name: "listElement", value: "Today: '${myTempTodayFlow}' Gallon(s)")
+           sendEvent(name: "listElement", value: "Today: ${myTempTodayFlow} GL")
          //   sendEvent(name: "listElement", value: "Today: 300 Gallon(s)")
             break
         case "monthFlow":
           //  addEvent(name: "monthFlow", value: "${monthFlow}" )
           log.debug("setListElement argument monthFlow case: '${argument}'")
-             sendEvent(name: "listElement", value: "Monthly: '${myTempMonthFlow}' Gallon(s)")
+             sendEvent(name: "listElement", value: "Monthly: ${myTempMonthFlow} GL")
            // sendEvent(name: "flowValue", value: "Monthly: 1000 Gallon(s)")
             break
         case "yearFlow":
           //  addEvent(name: "yearFlow", value: "${yearFlow}" )
           log.debug("setListElement argument yearFlow case: '${argument}'")
-           sendEvent(name: "listElement", value: "Yearly: '${myTempYearFlow}' Gallon(s)")
+           sendEvent(name: "listElement", value: "Yearly: ${myTempYearFlow} GL")
            // sendEvent(name: "flowValue", value: "Yearly: 39000 Gallon(s)")
             break
         default:
@@ -282,24 +285,166 @@ def poll() {
 	}//end of setListElement
 
 
+
+def mySyncDevice(){
+logger("mySyncDevice() called by device${device.deviceNetworkId}","info")
+//runIn( now() + 40000, parent.existingFlumeDevice(device.deviceNetworkId))
+//def existingDevice = getChildDevice(device.deviceNetworkId)    //state.flumeDeviceId)//idToString)//idToString)
+//existingDevice?.parent.existingFlumeDevice(device.deviceNetworkId)
+				//parent.existingFlumeDataSync
+def synDevice = parent.existingFlumeDataSync(device.deviceNetworkId)   //parent.syncLocationData(device.deviceNetworkId)
+log.debug("line 293 date '${new Date()}' syncLocationData = ${synDevice}")
+def myBatterLevel = synDevice.myDeviceBatteryLevel
+def myBridgeConnectedStatus = synDevice.myBridgeConnectStatus
+
+sendEvent(name: "batteryLevel", value:  myBatterLevel.capitalize() , isStateChange: true, displayed: true)
+
+	switch(myBridgeConnectedStatus) {
+
+	case "false":
+	sendEvent(name: "connectedStatus", value:  "Bridge WiFi Disconnected" , isStateChange: true, displayed: true)
+	break
+	
+    case "true":
+	sendEvent(name: "connectedStatus", value:  "Bridge WiFi Connected" , isStateChange: true, displayed: true)
+	break
+    
+    default:
+	log.debug{"myBridgeConnectedStatus '${myBridgeConnectedStatus}'"}
+	break
+	}
+
+}
+
+
+
+
+
 def refresh(){
 //log.debug("line 266 deviceid.deviceNetworkId '${device.deviceNetworkId}'")
+
+ Random rnd = new Random()
+   		int my1stSecond = rnd.nextInt(2)+1
+    	int my2ndSecond = rnd.nextInt(8)+1
+        int my3rdSecond = rnd.nextInt(8)+1
+    	int firstTimeOffset = "2${my1stSecond}" as int
+    	int secondTimeOffset = "3${my2ndSecond}" as int
+        int thirdTimeOffset = "4${my3rdSecond}" as int
+		
+        def i = rnd.next(5)
+		int delaySeconds = i % 2
+       // runIn((delaySeconds==0) ? firstTimeOffset : secondTimeOffset , delayPoll)
+ 		
+   // log.debug ("line 683 ${new Date()} string? ${(data instanceof String)} deviceid ${data} Map? ${(data instanceof Map)}")
+     //    [data: ["deviceID": tempID,overwrite: false]]
+
+	def seconds = (delaySeconds==0) ? firstTimeOffset : secondTimeOffset
+	def secondsWaterFlow = (delaySeconds==0) ? thirdTimeOffset : firstTimeOffset
+    def secondsAlert = (delaySeconds==0) ? secondTimeOffset : thirdTimeOffset
+	log.debug "in Alerts start timer"
+   
+    def now = new Date()
+	def runTimeAlert = new Date(now.getTime() + (secondsAlert * 1000))
+    def runTimeWaterFlow = new Date(now.getTime() + (secondsWaterFlow * 1000))
+    def runTimeSync = new Date(now.getTime() + (seconds * 1000))
+	//runOnce(runTime, myTimerEventHandler)
+    log.debug("line 345 runTime runTimeAlert= ${runTimeAlert} runTimeWaterFlow= ${runTimeWaterFlow}   runTimeSync= ${runTimeSync}")
+    runOnce(runTimeAlert, anyAlerts) 
+	runOnce(runTimeWaterFlow, cloudData)							//pollSLAlert, [data: ["deviceID": state.myLocations.get(0).myDeviceID,overwrite: true]])
+    runOnce(runTimeSync, mySyncDevice)
+
+
+	/*
+	 def anyAlerts = parent.(device.deviceNetworkId)
 	def cloudData = parent.retrievecloudData(device.deviceNetworkId)
-    def anyAlerts = parent.pollSLAlert()
-    def syncDevice = parent.existingFlumeDevice(device.deviceNetworkId)
+    def syncDevice = mySyncDevice() //parent.existingFlumeDevice(device.deviceNetworkId)
     logger("Flume DH refresh() called- cloudData: ${cloudData}, suspend: ${device.currentValue("suspend")}","debug")
-    
+    */
     
  // def myTempTodayFlow = state.todayFlow.value
  //  log.debug(${myTempTodayFlow})
     // logger("myTodayFlow: ${myTodayFlow}","info")
  //   setTodayFlow(myTempTodayFlow)
   
-  
+ /* Feb14
+ 
   	//    log.debug("device refresh  myTempTodayFlow '${myTempTodayFlow}'")
     state.thisCurrentMinFlow= cloudData.thisCurrentMinFlow
     state.todayFlow = cloudData.todayFlow
     state.thisMonthFlow = cloudData.thisMonthFlow
+ 
+    //String.format("%.2f", d));
+   // state.thisYearFlow = (cloudData.thisYearFlow)
+ //  def typeOfData = cloudData.thisYearFlow
+  // log.debug("typeOfData = ${typeOfData}")
+    state.thisYearFlow =    (cloudData.thisYearFlow) //String.format("%.2f", (cloudData.thisYearFlow).toDouble() ) 
+  //  state.thisYearFlow = String.format("%.2f", (cloudData.thisYearFlow) )//.round(1)  
+     //  log.debug("device refresh  state.thisYearFlow '${ state.thisYearFlow}'")
+    /*state.homeAway = cloudData.homeAway*/
+    
+/*Feb14
+	state.wetDry = cloudData.inAlert ? "wet" : "dry"
+    if (device.currentValue("suspend") != "pause") { //update only if not paused
+		generateEvent([name:"water", value:state.wetDry])
+    }	
+    
+  //  setListElement(String argument)   ///, isStateChange: true, displayed: true
+    
+    /*
+    generateEvent([name: "thisCurrentMinFlow", value: Math.round(cloudData.thisCurrentMinFlow) ])	
+   // sendEvent(name: "thisCurrentMinFlow", value: Math.round(cloudData.thisCurrentMinFlow) )				// 	, isStateChange: true, displayed: true)
+	sendEvent(name: "todayFlow", value: Math.round(cloudData.todayFlow) )                  				// 	, isStateChange: true, displayed: true)
+	sendEvent(name: "monthFlow", value: Math.round(cloudData.thisMonthFlow)	)							//  , isStateChange: true, displayed: true)
+	sendEvent(name: "yearFlow", value: String.format("%,.2f", (cloudData.thisYearFlow).toDouble() ))	//	, isStateChange: true, displayed: true)       //(cloudData.thisYearFlow)) //.round(1)     )
+    /*
+	sendEvent(name: "homeAway", value: cloudData.homeAway)*/
+
+/*Feb14
+    def myTempCurrentMin =  String.format("%,.2f", (state.thisCurrentMinFlow).toDouble() ) //at this point null? Math.round(cloudData.thisCurrentMinFlow)  try this too: state.thisCurrentMinFlow.value
+    def myTempTodayFlow = String.format("%,.2f", (state.todayFlow).toDouble() )
+    def myTempMonthFlow = String.format("%,.2f", (state.thisMonthFlow).toDouble() )
+    def myTempYearFlow =     String.format("%,.2f", (state.thisYearFlow).toDouble() )                              //state.thisYearFlow
+
+		 // sendEvent(name: "listElement", value: "Currently R: '${myTempCurrentMin}' GPM")
+                   
+                   sendEvent(name: "listElement", value: "YearFlow R: '${myTempYearFlow}' Gallon(s)")
+                   sendEvent(name: "listElement", value: "MonthFlow R: '${myTempMonthFlow}' Gallon(s)")
+                   sendEvent(name: "listElement", value: "TodayFlow R: '${myTempTodayFlow}' Gallon(s)")
+
+*///Feb14
+
+
+	} //end of Refresh
+
+//actions
+
+/* //Tile action to change Flume to home
+def changeToHome() {
+    logger("Flume DH changeToHome() called","debug")
+	parent.updateAway("home")
+}
+ */
+
+
+/* //Tile action to change Flume to away
+def changeToAway() {
+    logger("Flume DH changeToAway() called","debug")
+	parent.updateAway("away")
+} */
+
+def anyAlerts(){
+def anyAlerts = parent.pollSLAlert(device.deviceNetworkId)
+}
+
+def cloudData(){
+def cloudData = parent.retrievecloudData(device.deviceNetworkId)
+
+
+   log.debug("device refresh  cloudData '${cloudData}'")
+    state.thisCurrentMinFlow= cloudData.thisCurrentMinFlow
+    state.todayFlow = cloudData.todayFlow
+    state.thisMonthFlow = cloudData.thisMonthFlow
+    
  
     //String.format("%.2f", d));
    // state.thisYearFlow = (cloudData.thisYearFlow)
@@ -331,33 +476,46 @@ def refresh(){
     def myTempTodayFlow = String.format("%,.2f", (state.todayFlow).toDouble() )
     def myTempMonthFlow = String.format("%,.2f", (state.thisMonthFlow).toDouble() )
     def myTempYearFlow =     String.format("%,.2f", (state.thisYearFlow).toDouble() )                              //state.thisYearFlow
+    def myTempLast24HoursFlow =     String.format("%,.2f", (cloudData.last24Hours).toDouble() )  
+    def myTempLastHoursFlow =     String.format("%,.2f", (cloudData.lastHour).toDouble() )  
+    
+    
+    
+    
+    //support individual values for data monitoring externally
+   // generateEvent([name: "thisCurrentMinFlow", value: Math.round(cloudData.thisCurrentMinFlow) ])	
+   	sendEvent(name: "thisCurrentMinFlow", value:  myTempCurrentMin  /*Math.round(cloudData.thisCurrentMinFlow) )	*/	 				, isStateChange: true, displayed: true)
+	sendEvent(name: "todayFlow", value: myTempTodayFlow				/*Math.round(cloudData.todayFlow) )*/               				, isStateChange: true, displayed: true)
+	sendEvent(name: "monthFlow", value: myTempMonthFlow				/*Math.round(cloudData.thisMonthFlow)*/								, isStateChange: true, displayed: true)
+	sendEvent(name: "yearFlow", value: 	myTempYearFlow		        /*String.format("%,.2f", (cloudData.thisYearFlow).toDouble() ))*/	, isStateChange: true, displayed: true)
+    
+	sendEvent(name: "last24Hours", value: myTempLast24HoursFlow		/*Math.round(cloudData.thisMonthFlow)*/								, isStateChange: true, displayed: true)
+	sendEvent(name: "lastHour", value: 	myTempLastHoursFlow		    /*String.format("%,.2f", (cloudData.thisYearFlow).toDouble() ))*/	, isStateChange: true, displayed: true)
+    
 
 		 // sendEvent(name: "listElement", value: "Currently R: '${myTempCurrentMin}' GPM")
-                   
-                   sendEvent(name: "listElement", value: "YearFlow R: '${myTempYearFlow}' Gallon(s)")
-                   sendEvent(name: "listElement", value: "MonthFlow R: '${myTempMonthFlow}' Gallon(s)")
-                   sendEvent(name: "listElement", value: "TodayFlow R: '${myTempTodayFlow}' Gallon(s)")
-
-
-
-
-	} //end of Refresh
-
-//actions
-
-/* //Tile action to change Flume to home
-def changeToHome() {
-    logger("Flume DH changeToHome() called","debug")
-	parent.updateAway("home")
+                    sendEvent(name: "listElement", value: "Year: ${myTempYearFlow} GL")
+                   sendEvent(name: "listElement", value: "Month: ${myTempMonthFlow} GL")
+                   sendEvent(name: "listElement", value: "Today: ${myTempTodayFlow} GL")
 }
- */
 
 
-/* //Tile action to change Flume to away
-def changeToAway() {
-    logger("Flume DH changeToAway() called","debug")
-	parent.updateAway("away")
-} */
+def refreshAlert(deviceid){
+	
+    def deviceAlertSync = parent.existingFlumeAlertSync(deviceid)
+    
+    if(deviceid==device.deviceNetworkId){
+    	
+        log.debug("line 509 refreshAlert ${deviceAlertSync}")
+            
+          state.wetDry = deviceAlertSync.inAlertMode ? "wet" : "dry" 
+    
+		//state.wetDry = cloudData.inAlert ? "wet" : "dry"
+    	if (device.currentValue("suspend") != "pause") { //update only if not paused
+		generateEvent([name:"water", value:state.wetDry])
+    	}	
+    }
+}
 
 //Tile action (& suspend time limit action) to re-enble monitoring Flume for alerts
 def changeToMonitor() {
@@ -415,7 +573,8 @@ def generateEvent(Map results) {
 }
 
 //Typically called by parent: update to "wet"
-def changeWaterToWet() {
+def changeWaterToWet(deviceid) {
+if(deviceid==device.deviceNetworkId){
 	def suspension = device.currentValue("suspend")
     logger("Flume DH changeWaterToWet() called with suspend: ${suspension}","info")
     state.wetDry = "wet"
@@ -424,10 +583,14 @@ def changeWaterToWet() {
 	}
 }
 
+}
+
 //Typically called by parent: update to "dry"
-def changeWaterToDry() {
+def changeWaterToDry(deviceid) {
+if(deviceid==device.deviceNetworkId){
     logger("Flume DH changeWaterToDry() called","info")
     state.wetDry = "dry"
     //update even if paused
 	generateEvent([name:"water", value:"dry"])
+}
 }
