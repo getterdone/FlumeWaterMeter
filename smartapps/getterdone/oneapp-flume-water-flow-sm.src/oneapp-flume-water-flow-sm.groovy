@@ -1722,7 +1722,7 @@ emptyList.add(5) */
                
                 // //log.debug("line 418 !existingDevice === ${existingDevice}")
               //  log.debug("line 681 state.flumeDeviceId ${state.flumeDeviceId}   tempLocationDeviceId ${tempLocationDeviceId}")
-               def childDevice = addChildDevice("getterdone", "OneApp Flume Water Flow DH",   it.myDeviceID , null, 
+               def childDevice = addChildDevice("getterdone", "OneApp Flume Water Flow Meter DH",   it.myDeviceID , null, 
                [name: "${it.myLocationName}-Flume Meter", label: " ${it.myLocationName/*deviceLocationName.get(nameIndex)*/}-Flume Meter" /*"#${deviceCounter}-Flume Meter" */ , completedSetup: true])
                nameIndex= nameIndex+1
                
