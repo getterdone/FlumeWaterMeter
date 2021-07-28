@@ -15,7 +15,7 @@
  *  for the specific language governing permissions and limitations under the License.
  */
 metadata {
-	definition (name: "OneApp Flume Water Flow DH", namespace: "getterdone", author: "Ulices Soriano",   mnmn: "SmartThingsCommunity", vid: "d665a967-eccd-3ac7-bb72-b3d4c626f4dd", cstHandler: true) {
+	definition (name: "OneApp Flume Water Flow Meter DH", namespace: "getterdone", author: "Ulices Soriano",   mnmn: "SmartThingsCommunity", vid: "d665a967-eccd-3ac7-bb72-b3d4c626f4dd", cstHandler: true) {
 		capability "Water Sensor"   
         capability "Sensor"
         capability "Health Check"
